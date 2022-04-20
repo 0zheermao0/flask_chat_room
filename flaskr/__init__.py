@@ -26,6 +26,7 @@ def create_app(test_config=None):
         DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
         MAX_CONTENT_LENGTH=16 * 1024 * 1024,
     )
+    print('测试', os.path.join(app.instance_path, 'flaskr.sqlite'))
 
     if test_config is None:
         # load the instance config, if it exists, when not testing

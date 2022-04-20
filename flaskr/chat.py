@@ -50,7 +50,8 @@ def broadcast():
     ).fetchall()
     contents = [{'id': content[0], 'content': content[1], 'time': content[2], 'send': content[3]} for content in
                 contents]
-    socketio.emit('message', contents, namespace='/chat')
+    data = {'code': 200, 'data': contents, 'total_user': len(online_users)}
+    socketio.emit('message', data, namespace='/chat')
 
 
 @socketio.on('connect', namespace='/chat')
@@ -63,4 +64,6 @@ def test_connect():
 @socketio.on('disconnect', namespace='/chat')
 def test_disconnect():
     print('Client disconnected')
-    return flask.jsonify({"code": 200, "msg": "success"})
+    online_users.remove(request.sid)
+    broadcast()
+    return flask.jsonify({"code": 200, "msg": len(online_users)})
