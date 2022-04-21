@@ -24,7 +24,7 @@ def create_app(test_config=None):
         PORT='5001',
         SECRET_KEY='zheermaochatroom',
         DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
-        MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=3 * 1024 * 1024,
     )
     print('测试', os.path.join(app.instance_path, 'flaskr.sqlite'))
 
