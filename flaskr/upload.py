@@ -9,8 +9,13 @@ import os
 import time
 
 import flask
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, \
+    session
+from flask_socketio import emit
+
+from flaskr import socketio
 from flaskr.db import get_db
+from flaskr.cfg import PIC_BED
 
 bp = Blueprint('upload', __name__)
 
@@ -21,6 +26,7 @@ def upload():
         file = request.files['file']
         user = request.form['user']
         room = request.form['room']
+        form_time = request.form['time']
         print('测试upload', user, room)
         if file:
             filename = str(time.time()) + file.filename
@@ -29,10 +35,27 @@ def upload():
             flash('文件上传成功')
             db = get_db()
             db.execute(
-                'INSERT INTO file_path (file_name, file_path, user, room)'
-                ' VALUES (?, ?, ?, ?)',
-                (filename, file_path, '啊吧啊吧', '-1')
+                'INSERT INTO chat (content, time, send, room, content_type)'
+                ' VALUES (?, ?, ?, ?, ?)',
+                (PIC_BED + filename, form_time, user, room, 1)
             )
+            datas = db.execute(
+                'SELECT c.id, content, `time`, send, room, content_type'
+                ' FROM chat c'
+                ' WHERE c.room = ?',
+                (str(room),)
+            ).fetchall()
+            data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4],
+                     'content_type': d[5]} for d in datas]
             db.commit()
+            emit('rcvRoom',
+                 {'data': data},
+                 to=room, broadcast=False, namespace='/chat')
             return redirect(url_for('upload.upload'))
     return render_template('base.html')
+
+
+@bp.route('/images/<filename>/')
+def get_image(filename):
+    file_url = 'http://0.0.0.0:5000/images/' + filename
+    return flask.jsonify({'filename': file_url})

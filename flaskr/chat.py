@@ -62,7 +62,8 @@ def broadcast(room):
         ' FROM chat c'
         ' WHERE c.room = -1'
     ).fetchall()
-    contents = [{'id': content[0], 'content': content[1], 'time': content[2], 'send': content[3], 'room':content[4]} for content in
+    contents = [{'id': content[0], 'content': content[1], 'time': content[2], 'send': content[3], 'room':content[4],
+                 'content_type': content[5]} for content in
                 contents]
     data = {'code': 200, 'data': contents, 'total_user': len(online_users)}
     print('看看room', room)
@@ -94,12 +95,12 @@ def join(message):
     session['receive_count'] = session.get('receive_count', 0) + 1
     db = get_db()
     datas = db.execute(
-        'SELECT c.id, content, `time`, send, room'
+        'SELECT c.id, content, `time`, send, room, content_type'
         ' FROM chat c'
         ' WHERE c.room = ?',
         (str(message['room']),)
     ).fetchall()
-    data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4]} for d in datas]
+    data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4], 'content_type': d[5]} for d in datas]
     data.append({'id': 0, 'content': '有人加入了房间', 'time': time.localtime(), 'send': 'adminnnn', 'room': message['room']})
     print('join的data', data)
     emit('rcvRoom',
@@ -114,17 +115,18 @@ def send2Room(message):
     session['receive_count'] = session.get('receive_count', 0) + 1
     db = get_db()
     db.execute(
-        'INSERT INTO chat (content, time, send, room)'
-        ' VALUES (?, ?, ?, ?)',
+        'INSERT INTO chat (content, time, send, room, content_type)'
+        ' VALUES (?, ?, ?, ?, 0)',
         (message['message']['content'], message['message']['time'], message['message']['user'], message['message']['room'])
     )
     datas = db.execute(
-        'SELECT c.id, content, `time`, send, room'
+        'SELECT c.id, content, `time`, send, room, content_type'
         ' FROM chat c'
         ' WHERE c.room = ?',
         (str(message['message']['room']),)
     ).fetchall()
-    data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4]} for d in datas]
+    data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4],
+             'content_type': d[5]} for d in datas]
     db.commit()
     emit('rcvRoom',
          {'data': data, 'count': session['receive_count']},
