@@ -29,7 +29,7 @@ def upload():
         form_time = request.form['time']
         print('测试upload', user, room)
         if file:
-            filename = str(time.time()) + file.filename
+            filename = str(time.time())
             file_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads', filename)
             file.save(file_path)
             flash('文件上传成功')
