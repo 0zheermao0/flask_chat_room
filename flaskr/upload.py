@@ -13,7 +13,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
     session
 from flask_socketio import emit
 
-from flaskr import socketio
+from flaskr import socketio, chat
 from flaskr.db import get_db
 from flaskr.cfg import PIC_BED
 
@@ -27,9 +27,9 @@ def upload():
         user = request.form['user']
         room = request.form['room']
         form_time = request.form['time']
-        print('测试upload', user, room)
         if file:
-            filename = str(time.time())
+            filename = str(time.time()) + os.path.splitext(file.filename)[-1]
+            print('上传文件名为：', filename)
             file_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads', filename)
             file.save(file_path)
             flash('文件上传成功')
@@ -42,14 +42,14 @@ def upload():
             datas = db.execute(
                 'SELECT c.id, content, `time`, send, room, content_type'
                 ' FROM chat c'
-                ' WHERE c.room = ?',
+                ' WHERE c.room = ? and deleted = 0',
                 (str(room),)
             ).fetchall()
             data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4],
                      'content_type': d[5]} for d in datas]
             db.commit()
             emit('rcvRoom',
-                 {'data': data},
+                 {'data': data, 'latest': data[-1]['id'], 'count': len(chat.online_users)},
                  to=room, broadcast=False, namespace='/chat')
             return redirect(url_for('upload.upload'))
     return render_template('base.html')

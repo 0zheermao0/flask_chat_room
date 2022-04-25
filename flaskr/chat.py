@@ -31,13 +31,13 @@ def chat():
         send = request.form['user']
         room = request.form['room']
         db.execute(
-            'INSERT INTO chat (content, time, send, room)'
-            ' VALUES (?, ?, ?, ?)',
+            'INSERT INTO chat (content, time, send, room, deleted)'
+            ' VALUES (?, ?, ?, ?, 0)',
             (content, send_time, send, room)
         )
         contents = db.execute(
             'SELECT c.id, content, `time`, send'
-            ' FROM chat c WHERE c.room = -1'
+            ' FROM chat c WHERE c.room = -1 AND c.deleted = 0'
         ).fetchall()
         contents = [{'id': content[0], 'content': content[1], 'time': content[2], 'send': content[3]} for content in contents]
         db.commit()
@@ -60,7 +60,7 @@ def broadcast(room):
     contents = db.execute(
         'SELECT c.id, content, `time`, send, room'
         ' FROM chat c'
-        ' WHERE c.room = -1'
+        ' WHERE c.room = -1 AND c.deleted = 0'
     ).fetchall()
     contents = [{'id': content[0], 'content': content[1], 'time': content[2], 'send': content[3], 'room':content[4],
                  'content_type': content[5]} for content in
@@ -81,12 +81,12 @@ def test_connect():
 def test_disconnect():
     print('Client disconnected')
     online_users.remove(request.sid)
-    try:
-        broadcast()
-    except Exception as e:
-        print(e)
-        print('以上是错误日志')
-    return flask.jsonify({"code": 200, "msg": len(online_users)})
+    # try:
+    #     broadcast()
+    # except Exception as e:
+    #     print(e)
+    #     print('以上是错误日志')
+    # return flask.jsonify({"code": 200, "msg": len(online_users)})
 
 
 @socketio.on('join', namespace='/chat')
@@ -97,14 +97,14 @@ def join(message):
     datas = db.execute(
         'SELECT c.id, content, `time`, send, room, content_type'
         ' FROM chat c'
-        ' WHERE c.room = ?',
+        ' WHERE c.room = ? AND c.deleted = 0',
         (str(message['room']),)
     ).fetchall()
     data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4], 'content_type': d[5]} for d in datas]
     data.append({'id': 0, 'content': '有人加入了房间', 'time': time.localtime(), 'send': 'adminnnn', 'room': message['room']})
     print('join的data', data)
     emit('rcvRoom',
-         {'data': data, 'count': session['receive_count']},
+         {'data': data, 'count': len(online_users), 'latest': data[-2]['id']},  # 因为上面append了一个有人加入的消息，所以这里要-2
          to=message['room'], broadcast=False)
     print('调用了join Client %s joined room %s' % (request.sid, message['room']))
 
@@ -115,21 +115,21 @@ def send2Room(message):
     session['receive_count'] = session.get('receive_count', 0) + 1
     db = get_db()
     db.execute(
-        'INSERT INTO chat (content, time, send, room, content_type)'
-        ' VALUES (?, ?, ?, ?, 0)',
+        'INSERT INTO chat (content, time, send, room, content_type, deleted)'
+        ' VALUES (?, ?, ?, ?, 0, 0)',
         (message['message']['content'], message['message']['time'], message['message']['user'], message['message']['room'])
     )
     datas = db.execute(
         'SELECT c.id, content, `time`, send, room, content_type'
         ' FROM chat c'
-        ' WHERE c.room = ?',
-        (str(message['message']['room']),)
+        ' WHERE c.room = ? AND c.deleted = 0 AND c.id > ?',
+        (str(message['message']['room']), message['message']['latest'])
     ).fetchall()
     data = [{'id': d[0], 'content': d[1], 'time': d[2], 'send': d[3], 'room': d[4],
              'content_type': d[5]} for d in datas]
     db.commit()
     emit('rcvRoom',
-         {'data': data, 'count': session['receive_count']},
+         {'data': data, 'count': len(online_users), 'latest': data[-1]['id']},
          to=message['message']['room'], broadcast=False)
 
 
